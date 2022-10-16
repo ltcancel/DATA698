@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Literature Review
 
 
+
 # Hypothesis or Reasearch Question
 
 
@@ -27,6 +28,7 @@ library(quanteda)
 library(dplyr)
 library(tidytext)
 library(tm)
+library(topicmodels)
 ```
 
 
@@ -81,7 +83,11 @@ fake.dtm2 <- removeSparseTerms(fake.dtm, sparse = 0.98)
 
 Topic modeling. Using latent Dirichlet allocation (LDA) to learn the essential words in our DTM
 ```{r}
+# LDA 
+fake.lda <- LDA(fake.dtm2, k = 2, control = list(seed = 1234))
 
+
+?LDA
 ```
 
 
