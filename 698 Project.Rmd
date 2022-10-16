@@ -1,0 +1,55 @@
+---
+title: "Real vs Fake News"
+author: "LeTicia Cancel"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Introduction
+
+
+# Literature Review
+
+
+# Hypothesis or Reasearch Question
+
+
+# Data and Variables
+
+```{r}
+# import the data
+
+```
+
+
+
+# Statistical Methods
+
+
+
+# Reference
+
+
+
+# Appendix
+
+
+# Results
+
+
+# Conclusion
+
+
+
+# Abstract
+
+
+
+
+
+
