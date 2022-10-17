@@ -42,6 +42,8 @@ real_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/True.csv
 # preview raw data
 head(fake_df)
 head(real_df)
+summary(fake_df)
+str(real_df)
 ```
 
 ```{r}
@@ -50,7 +52,7 @@ fake_words <- fake_df %>%
   unnest_tokens(word, text)
 
 # remove stop words
-fake_words <- anti_join(fake_words, get_stopwords())
+#fake_words <- anti_join(fake_words, get_stopwords())
 
 # count each word
 fake_words <- fake_words %>% 
@@ -58,6 +60,8 @@ fake_words <- fake_words %>%
 
 head(fake_words)
 tail(fake_words)
+summary(fake_words)
+str(fake_words)
 ```
 
 Normalizing the data by case-folding, stopword removal, stamming, lemmatization, and contraction simplification
@@ -65,8 +69,16 @@ Normalizing the data by case-folding, stopword removal, stamming, lemmatization,
 # clean the data using Text Mine (TM)
 # create a corpus from the fake_df file
 fake_df.corpus <- Corpus(VectorSource(fake_df$text))
-# case-folding
+#remove stopwords
+fake.corpus <- tm_map(fake_df.corpus, removeWords, stopwords("english"))
+# convert to lower
 fake.corpus <- tm_map(fake_df.corpus, tolower)
+#remove numbers
+fake.corpus <- tm_map(fake_df.corpus, removeNumbers)
+#remove punctuations
+fake.corpus <- tm_map(fake_df.corpus, removePunctuation)
+#strip white spaces
+fake.corpus <- tm_map(fake_df.corpus, stripWhitespace)
 # stemming
 fake.corpus <- tm_map(fake.corpus, stemDocument)
 
@@ -77,14 +89,26 @@ Create Document Term Matrix (DTM)
 ```{r}
 # first DTM
 fake.dtm <- DocumentTermMatrix(fake.corpus, control = list(minWordLength = 3))
-fake.dtm
-# remove low frequency workds (sparse terms)
-fake.dtm2 <- removeSparseTerms(fake.dtm, sparse = 0.98)
-fake.dtm2
+# remove low frequency words (sparse terms)
+fake.dtm2 <- removeSparseTerms(fake.dtm, sparse = 0.96)
+
+#convert to dataframe
+fake.dtm.df <- as.data.frame(as.matrix(fake.dtm2))
+head(fake.dtm.df)
 ```
+
+```{r}
+# sort by decreasing order
+fake.dtm.sort <- sort(rowSums(fake.dtm.df), decreasing = TRUE)
+fake.dtm.sort <- data.frame(word = names(fake.dtm.sort), freq=fake.dtm.sort)
+head(fake.dtm.sort)
+```
+
 
 Topic modeling. Using latent Dirichlet allocation (LDA) to learn the essential words in our DTM
 ```{r}
+dtm_s <- sort(rowSums())
+
 # LDA 
 fake.lda <- LDA(fake.dtm2, k = 2, control = list(seed = 1234))
 
