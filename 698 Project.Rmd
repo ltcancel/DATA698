@@ -77,8 +77,10 @@ Create Document Term Matrix (DTM)
 ```{r}
 # first DTM
 fake.dtm <- DocumentTermMatrix(fake.corpus, control = list(minWordLength = 3))
+fake.dtm
 # remove low frequency workds (sparse terms)
 fake.dtm2 <- removeSparseTerms(fake.dtm, sparse = 0.98)
+fake.dtm2
 ```
 
 Topic modeling. Using latent Dirichlet allocation (LDA) to learn the essential words in our DTM
