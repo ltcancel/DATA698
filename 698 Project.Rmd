@@ -30,6 +30,7 @@ library(tidytext)
 library(tm)
 library(topicmodels)
 library(data.table)
+library(ggplot2)
 ```
 
 
@@ -47,26 +48,53 @@ summary(fake_df)
 str(real_df)
 ```
 
+Other summaries
+```{r}
+fake_df %>%
+  count(subject, sort = TRUE)
+
+real_df %>%
+  count(subject, sort = TRUE)
+```
+
+
+
+
 ```{r}
 # clean the data  using tidytext
 fake_words <- fake_df %>%
   unnest_tokens(word, text)
 
 # remove stop words
-fake_words <- anti_join(fake_words, get_stopwords(source = "snowball"))
+fake_words <- fake_words %>% anti_join(stop_words, by = "word")
 
 # count each word
-fake_words <- fake_words %>% 
+fake_count <- fake_words %>% 
   count(word, sort = TRUE)
+head(fake_count)
+```
 
+chart of words
+```{r}
+head(fake_count) %>%
+  ggplot(aes (word, n, fill = word)) +
+  geom_col(stat = "identity") + 
+  coord_flip() + 
+  labs(title = "Fake News Top Words",
+         y = "count")
+```
+
+
+
+Normalizing the data by case-folding, stopword removal, stamming, lemmatization, and contraction simplification
+```{r}
 head(fake_words)
 tail(fake_words)
 summary(fake_words)
 str(fake_words)
-```
 
-Normalizing the data by case-folding, stopword removal, stamming, lemmatization, and contraction simplification
-```{r}
+
+
 # clean the data using Text Mine (TM)
 # create a corpus from the fake_df file
 fake_df.corpus <- Corpus(VectorSource(fake_df))
