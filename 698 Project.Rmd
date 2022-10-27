@@ -31,6 +31,7 @@ library(tm)
 library(topicmodels)
 library(data.table)
 library(ggplot2)
+library(gridExtra)
 ```
 
 
@@ -42,10 +43,14 @@ real_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/True.csv
 
 ```{r}
 # preview raw data
-head(fake_df)
-head(real_df)
+#head(fake_df)
+#head(real_df)
+print("Summary of 'Fake' Dataset")
 summary(fake_df)
-str(real_df)
+
+print("Summary of 'Real' Dataset")
+summary(real_df)
+#str(real_df)
 ```
 
 Other summaries
@@ -57,6 +62,13 @@ real_df %>%
   count(subject, sort = TRUE)
 ```
 
+Missing Values
+```{r}
+print("'Fake' Dataset Missing Values")
+summary(is.na(fake_df))
+print("'Real' Dataset Missing Values")
+summary(is.na(real_df))
+```
 
 
 
@@ -74,34 +86,63 @@ fake_count <- fake_words %>%
 head(fake_count)
 ```
 
-chart of words
 ```{r}
-head(fake_count) %>%
+# clean the data  using tidytext
+real_words <- real_df %>%
+  unnest_tokens(word, text)
+
+# remove stop words
+real_words <- real_words %>% anti_join(stop_words, by = "word")
+
+# count each word
+real_count <- real_words %>% 
+  count(word, sort = TRUE)
+
+#remove weird character
+real_count <- real_count %>%
+  filter(word != 'â')
+
+head(real_count)
+```
+
+chart of words
+```{r fig.height=8, fig.width=15}
+p1 <- head(fake_count) %>%
   ggplot(aes (word, n, fill = word)) +
   geom_col(stat = "identity") + 
   coord_flip() + 
   labs(title = "Fake News Top Words",
-         y = "count")
+         y = "count") +
+  theme(legend.position = "none")
+
+
+p2 <- head(real_count) %>%
+  ggplot(aes (word, n, fill = word)) +
+  geom_col(stat = "identity") + 
+  coord_flip() + 
+  labs(title = "Real News Top Words",
+         y = "count") +
+  theme(legend.position = "none")
+
+grid.arrange(p1, p2, ncol = 2)
 ```
 
 
 
 Normalizing the data by case-folding, stopword removal, stamming, lemmatization, and contraction simplification
 ```{r}
-head(fake_words)
-tail(fake_words)
-summary(fake_words)
-str(fake_words)
-
-
-
 # clean the data using Text Mine (TM)
 # create a corpus from the fake_df file
 fake_df.corpus <- Corpus(VectorSource(fake_df))
+
+space <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+fake.corpus <- tm_map(fake_df.corpus, space, "/")
+fake.corpus <- tm_map(fake.corpus, space, "@")
+fake.corpus <- tm_map(fake.corpus, space, "\\|")
 #remove stopwords
 #fake.corpus <- tm_map(fake_df.corpus, removeWords, stopwords("english"))
 # convert to lower
-fake.corpus <- tm_map(fake_df.corpus, tolower)
+fake.corpus <- tm_map(fake_df.corpus, content_transformer(tolower))
 #remove numbers
 fake.corpus <- tm_map(fake_df.corpus, removeNumbers)
 #remove punctuations
@@ -109,23 +150,25 @@ fake.corpus <- tm_map(fake_df.corpus, removePunctuation)
 #strip white spaces
 fake.corpus <- tm_map(fake_df.corpus, stripWhitespace)
 # stemming
-#fake.corpus <- tm_map(fake.corpus, stemDocument)
+fake.corpus <- tm_map(fake.corpus, content_transformer(stemDocument))
 
-head(fake.corpus)
+#head(fake.corpus)
 ```
 
 Create Document Term Matrix (DTM)
 ```{r}
 # first DTM
 fake.dtm <- DocumentTermMatrix(fake.corpus)
+fake.dtm <- as.matrix(fake.dtm)
 # remove low frequency words (sparse terms)
-fake.dtm2 <- removeSparseTerms(fake.dtm, sparse = 0.96)
-
-
+#fake.dtm2 <- removeSparseTerms(fake.dtm, sparse = 0.99)
+#inspect(fake.dtm2)
+#??inspect
 #convert to dataframe
-fake.dtm.df <- as.data.frame(as.matrix(fake.dtm2))
-head(fake.dtm.df)
-write.csv(fake.dtm.df,"DTM.csv")
+fake.dtm.sort <- sort(rowSums(fake.dtm), decreasing = TRUE)
+fake.dtm.sort <- as.data.frame(word = names(fake.dtm.sort), freq = fake.dtm.sort)
+fake.dtm
+#write.csv(fake.dtm.df,"DTM.csv")
 ```
 
 ```{r}
