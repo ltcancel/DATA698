@@ -23,7 +23,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Data and Variables
 
 ```{r}
-# libraries
+# libraries 
 library(quanteda)
 library(dplyr)
 library(tidytext)
@@ -37,14 +37,18 @@ library(gridExtra)
 
 ```{r}
 # import the data
-fake_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/Fake.csv?raw=true")
-real_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/True.csv?raw=true")
+#fake_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/Fake.csv?raw=true")
+#real_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/True.csv?raw=true")
+fake_df <- read.csv("https://github.com/ltcancel/DATA698/raw/main/Data/DataSet_Misinfo_FAKE.csv")
+real_df <- read.csv("https://github.com/ltcancel/DATA698/raw/main/Data/DataSet_Misinfo_TRUE.csv")
 ```
 
 ```{r}
 # preview raw data
 #head(fake_df)
 #head(real_df)
+fake_df <- fake_df %>%
+  select(X, text)
 print("Summary of 'Fake' Dataset")
 summary(fake_df)
 
@@ -56,10 +60,10 @@ summary(real_df)
 Other summaries
 ```{r}
 fake_df %>%
-  count(subject, sort = TRUE)
+  count(text, sort = TRUE)
 
 real_df %>%
-  count(subject, sort = TRUE)
+  count(text, sort = TRUE)
 ```
 
 Missing Values
@@ -152,7 +156,7 @@ fake.corpus <- tm_map(fake_df.corpus, stripWhitespace)
 # stemming
 fake.corpus <- tm_map(fake.corpus, content_transformer(stemDocument))
 
-#head(fake.corpus)
+head(fake.corpus)
 ```
 
 Create Document Term Matrix (DTM)
