@@ -12,17 +12,19 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
+DONE
 
 # Literature Review
 
-
+DONE
 
 # Hypothesis or Reasearch Question
 
+DONE
 
 # Data and Variables
 
-```{r}
+```{r warning=FALSE}
 # libraries 
 library(quanteda)
 library(dplyr)
@@ -34,44 +36,57 @@ library(ggplot2)
 library(gridExtra)
 ```
 
+## Data 
+
+Data Source https://www.kaggle.com/datasets/stevenpeutz/misinformation-fake-news-text-dataset-79k 
 
 ```{r}
 # import the data
-#fake_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/Fake.csv?raw=true")
-#real_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/True.csv?raw=true")
-fake_df <- read.csv("https://github.com/ltcancel/DATA698/raw/main/Data/DataSet_Misinfo_FAKE.csv")
-real_df <- read.csv("https://github.com/ltcancel/DATA698/raw/main/Data/DataSet_Misinfo_TRUE.csv")
+fake_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/Fake.csv?raw=true")
+real_df <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/True.csv?raw=true")
+#fake_df <- read.csv("https://github.com/ltcancel/DATA698/raw/main/Data/DataSet_Misinfo_FAKE.csv")
+#real_df <- read.csv("https://github.com/ltcancel/DATA698/raw/main/Data/DataSet_Misinfo_TRUE.csv")
 ```
 
 ```{r}
 # preview raw data
-#head(fake_df)
-#head(real_df)
+head(fake_df)
+head(real_df)
+```
+
+```{r}
 fake_df <- fake_df %>%
-  select(X, text)
+  select(title, text, subject)
 print("Summary of 'Fake' Dataset")
 summary(fake_df)
 
+real_df <- real_df %>%
+  select(title, text, subject)
 print("Summary of 'Real' Dataset")
 summary(real_df)
 #str(real_df)
 ```
 
+
 Other summaries
 ```{r}
-fake_df %>%
-  count(text, sort = TRUE)
+str(fake_df)
+str(real_df)
 
-real_df %>%
-  count(text, sort = TRUE)
+
+#fake_df %>%
+#  count(text, sort = TRUE)
+
+#real_df %>%
+#  count(text, sort = TRUE)
 ```
 
 Missing Values
 ```{r}
 print("'Fake' Dataset Missing Values")
-summary(is.na(fake_df))
+sum(is.na(fake_df))
 print("'Real' Dataset Missing Values")
-summary(is.na(real_df))
+sum(is.na(real_df))
 ```
 
 
