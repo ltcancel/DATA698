@@ -96,6 +96,8 @@ link <- nyp %>%
   html_attr("href") %>%
   as.character()
 
+length(link)
+
 nyp_vector <- data.frame(title, date, link)
 
 article_list <- data.frame(matrix(ncol = 3, nrow = 0))
@@ -135,7 +137,21 @@ articles <- function() {
     html_attr("href") %>%
     as.character()
   
-  temp_df <- data.frame(a, b, c)
+  article <- read_html(c)
+  
+  for(i in 1:length(article)){
+    
+  } 
+  
+  d <- article %>%
+    html_node("div.single__content.entry-content.m-bottom") %>%
+    html_text()
+  
+  e <- article %>%
+    html_nodes("li.tag-list__tag") %>%
+    html_text()
+  
+  temp_df <- data.frame(a, b, c, d, e)
   article_list <- rbind(article_list, temp_df)
   
   return(article_list)
