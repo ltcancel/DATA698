@@ -4,11 +4,16 @@ library(stringr)
 library(tidyverse)
 library(here)
 
-url <-("https://nypost.com/tag/fake-news/")
+url <-("https://nypost.com/tag/fake-news/page/")
 page2 <- ("https://nypost.com/tag/fake-news/page/2/")
 
 nyp <- read_html(url)
 nyp2 <- read_html(page2)
+
+# test pasting a new link
+temp <- paste(url,as.character(2), sep = "")
+url <- read_html(temp)
+url
 
 #page section
 nyp %>%
@@ -100,64 +105,42 @@ length(link)
 
 nyp_vector <- data.frame(title, date, link)
 
-article_list <- data.frame(matrix(ncol = 3, nrow = 0))
-colnames(article_list) <- c('title', 'date', 'link')
-article_list <- rbind(article_list, nyp_vector)
-head(article_list)
-
+head(nyp_vector)
 
 
 -----------------------------------------------------------------------------------------------------------------
+# WORKS!!!!!!!!
   
-# function to collect articles
-  
-# empty dataframe with column names
-article_list <- data.frame(matrix(ncol = 3, nrow = 0))
-colnames(article_list) <- c('title', 'date', 'link' )
+article_list <- data.frame()
+temp_list <- data.frame()
+max <- 5
+base <- "https://nypost.com/tag/fake-news/page/"
 
-
-articles <- function() {
-  #get url
-  url <-("https://nypost.com/tag/fake-news/page/1")
-  nyp <- read_html(url)
-  
-  #get all article titles
-  a <- nyp %>%
-    html_nodes(".story__headline.headline.headline--archive") %>%
-    html_text(trim = TRUE)
-  
-  #get article dates
-  b <- nyp %>%
-    html_nodes("span.meta.meta--byline") %>%
-    html_text(trim = TRUE)
-  
-  #get article URLs
-  c <- nyp %>%
-    html_nodes(".headline--archive a") %>%
-    html_attr("href") %>%
-    as.character()
-  
-  article <- read_html(c)
-  
-  for(i in 1:length(article)){
+for(i in 1:max){
+    temp <- paste(base, as.character(i), sep = "")
+    url <- read_html(temp)
     
-  } 
-  
-  d <- article %>%
-    html_node("div.single__content.entry-content.m-bottom") %>%
-    html_text()
-  
-  e <- article %>%
-    html_nodes("li.tag-list__tag") %>%
-    html_text()
-  
-  temp_df <- data.frame(a, b, c, d, e)
-  article_list <- rbind(article_list, temp_df)
-  
-  return(article_list)
+    #get all article titles
+    a <- url %>%
+      html_nodes(".story__headline.headline.headline--archive") %>%
+      html_text(trim = TRUE)
+    
+    #get article dates
+    b <- url %>%
+      html_nodes("span.meta.meta--byline") %>%
+      html_text(trim = TRUE)
+    
+    #get article URLs
+    c <- url %>%
+      html_nodes(".headline--archive a") %>%
+      html_attr("href") %>%
+      as.character()
+    
+    #dataframe of scraped articles
+    temp_list <- cbind(a,b,c)
+    article_list <- rbind(article_list,temp_list)
+    
 }
 
-articles_return <- articles()
 
-head(articles_return)
- 
+
