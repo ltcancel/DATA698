@@ -292,6 +292,77 @@ colnames(master_list) <- c('title', 'date','url','text')
 head(master_list)
 ```
 
+Analysis of Titles 
+```{r}
+master_list_titles <- master_list %>%
+  select(title)
+str(master_list_titles)
+head(master_list_titles)
+```
+
+Clean Title text
+```{r}
+# clean the data  using tidytext
+title_words <- master_list_titles %>%
+  unnest_tokens(word, title)
+
+# remove stop words
+title_words <- title_words %>% 
+  anti_join(stop_words, by = "word")
+
+
+# count each word
+title_count <- title_words %>% 
+  count(word, sort = TRUE)
+
+# remove the words 'fake' and 'news' the count of both words are inflated since the web page is dedicated to fake news
+title_count <- title_count %>%
+  filter(word != c('fake','news'))
+head(title_count)
+```
+
+Analysis of Date column
+```{r}
+master_list_date <- master_list %>%
+  select(date)
+str(master_list_date)
+head(master_list_date)
+```
+
+Split Date column to remove time and keep date only
+```{r}
+master_list_date <- master_list_date %>%
+  separate(date, c("month","day","year")," ")
+
+head(master_list_date)
+
+year_count <- master_list_date %>% 
+  count(year, sort = TRUE)
+
+head(year_count)
+```
+
+combine month and year. then take a count
+```{r}
+master_list_date$month_year <- paste(master_list_date$month, master_list_date$year, sep = " ")
+head(master_list_date)
+
+month_count <- master_list_date %>% 
+  count(month_year, sort = TRUE)
+
+head(month_count)
+```
+
+
+
+Analysis of Article text
+```{r}
+master_list_text <- master_list %>%
+  select(text)
+str(master_list_text)
+head(master_list_text)
+```
+
 
 # Statistical Methods
 
