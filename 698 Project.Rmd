@@ -363,6 +363,27 @@ str(master_list_text)
 head(master_list_text)
 ```
 
+```{r}
+# clean the data  using tidytext
+words <- master_list_text %>%
+  unnest_tokens(word, text)
+
+# remove stop words
+words <- words %>% 
+  anti_join(stop_words, by = "word")
+
+
+# count each word
+words_count <- words %>% 
+  count(word, sort = TRUE)
+
+# remove the words 'fake' and 'news' the count of both words are inflated since the web page is dedicated to fake news
+words_count <- words_count %>%
+  filter(word != c('fake','news'))
+
+head(words_count)
+```
+
 
 # Statistical Methods
 
