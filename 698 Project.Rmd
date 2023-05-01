@@ -34,6 +34,9 @@ library(topicmodels)
 library(data.table)
 library(ggplot2)
 library(gridExtra)
+library(rvest)
+library(stringr)
+library(tidyverse)
 ```
 
 ## Data 
@@ -214,6 +217,79 @@ fake.lda <- LDA(fake.dtm2, k = 2, control = list(seed = 1234))
 
 
 ?LDA
+```
+
+## New York Post Data
+The New York Post has a section dedicated to the latest 'Fake News'
+
+
+Function to loop through 10 NY Post web pages and scrape the news articles off of each page. Each page has 20 articles. The first fuction scrapes the article title, publication date, and the URL to the individual article. It then puts this scraped data into a dataframe. 
+```{r}
+article_list <- data.frame()
+temp_list <- data.frame()
+max <- 10
+base <- "https://nypost.com/tag/fake-news/page/"
+
+for(i in 1:max){
+    temp <- paste(base, as.character(i), sep = "")
+    url <- read_html(temp)
+    
+    #get all article titles
+    a <- url %>%
+      html_nodes(".story__headline.headline.headline--archive") %>%
+      html_text(trim = TRUE)
+    
+    #get article dates
+    b <- url %>%
+      html_nodes("span.meta.meta--byline") %>%
+      html_text(trim = TRUE)
+    
+    #get article URLs
+    c <- url %>%
+      html_nodes(".headline--archive a") %>%
+      html_attr("href") %>%
+      as.character()
+    
+    #dataframe of scraped articles
+    temp_list <- cbind(a,b,c)
+    article_list <- rbind(article_list,temp_list)
+    
+}
+```
+
+The second function loops through each link on the first dataframe, scrapes the article text, then adds it to the dataframe. The final data frame has one for per article and the columns are the title, date, URL, and article text. 
+```{r}
+# get article text for each row
+
+all_text <- data.frame(matrix(ncol = 1,nrow = 0))
+colnames(all_text) <- c('text')
+#temp_list <- data.frame()
+
+for(i in 1:nrow(article_list)){
+  temp <- read_html(article_list[i,3])
+  
+  #get text
+  a <- temp %>%
+    html_node("div.single__content.entry-content.m-bottom") %>%
+    html_text(trim = TRUE)
+  
+  #get tag list
+  #article 1 tag list
+  #b <- temp %>%
+   # html_nodes("li.tag-list__tag") %>%
+    #html_text(trim = TRUE)
+  
+ # temp_list <- cbind(temp_list,a,b)
+  all_text <- rbind(all_text,a)
+}
+```
+
+```{r}
+#final dataframe
+
+master_list <- cbind(article_list, all_text)
+colnames(master_list) <- c('title', 'date','url','text')
+head(master_list)
 ```
 
 

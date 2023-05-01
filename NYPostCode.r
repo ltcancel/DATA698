@@ -113,7 +113,7 @@ head(nyp_vector)
   
 article_list <- data.frame()
 temp_list <- data.frame()
-max <- 5
+max <- 10
 base <- "https://nypost.com/tag/fake-news/page/"
 
 for(i in 1:max){
@@ -143,4 +143,36 @@ for(i in 1:max){
 }
 
 
+#################################################################################################################
+# get article text for each row
 
+all_text <- data.frame(matrix(ncol = 1,nrow = 0))
+colnames(all_text) <- c('text')
+#temp_list <- data.frame()
+
+for(i in 1:nrow(article_list)){
+  temp <- read_html(article_list[i,3])
+  
+  #get text
+  a <- temp %>%
+    html_node("div.single__content.entry-content.m-bottom") %>%
+    html_text(trim = TRUE)
+  
+  #get tag list
+  #article 1 tag list
+  #b <- temp %>%
+   # html_nodes("li.tag-list__tag") %>%
+    #html_text(trim = TRUE)
+  
+ # temp_list <- cbind(temp_list,a,b)
+  all_text <- rbind(all_text,a)
+}
+
+article_list[2,3]
+
+#################################################################################################################
+#final dataframe
+
+master_list <- cbind(article_list, all_text)
+colnames(master_list) <- c('title', 'date','url','text')
+head(master_list)
