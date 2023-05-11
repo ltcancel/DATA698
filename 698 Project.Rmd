@@ -24,7 +24,7 @@ DONE
 
 # Data and Variables
 
-```{r warning=FALSE}
+```{r warning=FALSE, message=FALSE}
 # libraries 
 library(quanteda)
 library(dplyr)
@@ -329,7 +329,7 @@ str(master_list_date)
 head(master_list_date)
 ```
 
-Split Date column to remove time and keep date only
+Split Date column to remove time and keep date only. Just looking at this New York post data it looks like articles have decreased over the years. 
 ```{r}
 master_list_date <- master_list_date %>%
   separate(date, c("month","day","year")," ")
@@ -367,6 +367,9 @@ head(master_list_text)
 # clean the data  using tidytext
 words <- master_list_text %>%
   unnest_tokens(word, text)
+
+# remove More On: \n\t before removing stop words
+
 
 # remove stop words
 words <- words %>% 
