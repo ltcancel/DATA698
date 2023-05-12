@@ -29,7 +29,7 @@ DONE
 library(quanteda)
 library(dplyr)
 library(tidytext)
-library(tm)
+library(tm) # for text mining
 library(topicmodels)
 library(data.table)
 library(ggplot2)
@@ -37,6 +37,11 @@ library(gridExtra)
 library(rvest)
 library(stringr)
 library(tidyverse)
+library(tidyr)
+library(SnowballC) # for text stemming
+library(wordcloud) # word-cloud generator
+library(RColorBrewer) # color palettes
+library(syuzhet) # for sentiment analysis
 ```
 
 ## Data 
@@ -284,6 +289,7 @@ for(i in 1:nrow(article_list)){
 }
 ```
 
+
 ```{r}
 #final dataframe
 
@@ -368,8 +374,6 @@ head(master_list_text)
 words <- master_list_text %>%
   unnest_tokens(word, text)
 
-# remove More On: \n\t before removing stop words
-
 
 # remove stop words
 words <- words %>% 
@@ -385,6 +389,95 @@ words_count <- words_count %>%
   filter(word != c('fake','news'))
 
 head(words_count)
+tail(words_count)
+```
+
+Sentiment analysis of NYP words
+```{r}
+words_sentiment <- words_count %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+??linenumber
+```
+
+Prep data for sentiment analysis
+```{r}
+# load data as a corpus
+textDoc <- Corpus(VectorSource(master_list_text))
+
+# replace "/", "@", and "|" with space
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+textDoc <- tm_map(textDoc, toSpace, "/")
+textDoc <- tm_map(textDoc, toSpace, "@")
+textDoc <- tm_map(textDoc, toSpace, "\\|")
+
+# convert the text to lower case
+textDoc <- tm_map(textDoc, content_transformer(tolower))
+# remove numbers
+textDoc <- tm_map(textDoc, removeNumbers)
+# remove english common stopwords
+textDoc <- tm_map(textDoc, removeWords, stopwords("english"))
+# remove punctuation
+textDoc <- tm_map(textDoc, removePunctuation)
+# eliminate extra white spaces
+textDoc <- tm_map(textDoc, stripWhitespace)
+# text stemming - reduce words to their root form
+textDoc <- tm_map(textDoc, stemDocument)
+# remove custom words after seeing the frequency
+removeSpecialChars <- function(x) gsub("-","",x)
+textDoc <- tm_map(textDoc, removeSpecialChars)
+# remove custom words 
+textDoc <- tm_map(textDoc, removeWords, c("said","news","fake","post","''"))
+```
+
+Build Document Term Matrix (DTM)
+```{r}
+textDoc_dtm <- TermDocumentMatrix(textDoc)
+dtm_m <- as.matrix(textDoc_dtm)
+# sort by decreasing value of frequency
+dtm_v <- sort(rowSums(dtm_m), decreasing = TRUE)
+dtm_d <- data.frame(word = names(dtm_v), freq=dtm_v)
+# remove first two rows
+dtm_d <- dtm_d[-c(1:2),]
+# remove last 5 rows
+dtm_d <- slice(dtm_d, 1:(n() - 6))
+# display the top 5 most frequent works
+head(dtm_d)
+tail(dtm_d)
+```
+
+plot most frequent words
+```{r}
+barplot(dtm_d[1:5,]$freq, las = 2, names.arg = dtm_d[1:5,]$word,
+        col = "lightgreen", main = "Top 5 most frequent words", 
+        ylab = "Word Frequencies")
+```
+
+Generate word cloud
+```{r}
+set.seed(1234)
+wordcloud(words = dtm_d$word, freq = dtm_d$freq, min.freq = 10, max.words = 100, random.order = FALSE,
+          rot.per = 0.40, colors = brewer.pal(8, "Dark2"))
+```
+
+Find word association
+```{r}
+findAssocs(textDoc_dtm, terms = c("report","say","trump"), corlimit = 0.25)
+```
+
+Find associations for words that occur at least 50 times
+```{r}
+findAssocs(textDoc_dtm, terms = findFreqTerms(textDoc_dtm, lowfreq = 50), corlimit = 0.25)
+```
+
+Sentiment Scores
+```{r}
+syuzhet_vector <- get_sentiment(master_list_text, method = "syuzhet")
+head(syuzhet_vector)
+summary(syuzhet_vector)
 ```
 
 
