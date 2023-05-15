@@ -475,10 +475,53 @@ findAssocs(textDoc_dtm, terms = findFreqTerms(textDoc_dtm, lowfreq = 50), corlim
 
 Sentiment Scores
 ```{r}
-syuzhet_vector <- get_sentiment(master_list_text, method = "syuzhet")
-head(syuzhet_vector)
-summary(syuzhet_vector)
+# clean raw file before getting sentiment scores
+clean_master_list <- master_list_text
+clean_master_list$text <- gsub("\\n"," ",as.character(clean_master_list$text))
+clean_master_list$text <- gsub("\\t"," ",as.character(clean_master_list$text))
+clean_master_list$text <- gsub("More On:"," ",as.character(clean_master_list$text))
+head(clean_master_list)
 ```
+
+```{r}
+syuzhet_vector <- get_sentiment(clean_master_list$text, method = "syuzhet")
+bing_vector <- get_sentiment(clean_master_list$text, method = "bing")
+afinn_vector <- get_sentiment(clean_master_list$text, method = "afinn")
+summary(syuzhet_vector)
+summary(bing_vector)
+summary(afinn_vector)
+```
+
+Emotional classification
+```{r}
+d <- get_nrc_sentiment(clean_master_list$text)
+head(d)
+```
+
+Graph the emotional classification results
+```{r}
+#transpose
+td <- data.frame(t(d))
+# compute sums of each column
+td_new <- data.frame(rowSums(td[2:200]))
+names(td_new)[1] <- "count"
+td_new <- cbind("sentiment" = rownames(td_new), td_new)
+rownames(td_new) <- NULL
+td_new2 <- td_new[1:10,]
+quickplot(sentiment, data = td_new2, weight=count, geom = "bar", fill=sentiment, ylab = "count") + ggtitle("Survey Sentiments")
+```
+
+% of emotions
+```{r}
+barplot(
+  sort(colSums(prop.table(d[,1:10]))),
+  horiz = TRUE,
+  cex.names = 0.7,
+  las = 1,
+  main = "Emotions in Text", xlab = "Percentage"
+)
+```
+
 
 
 # Statistical Methods
