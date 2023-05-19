@@ -518,31 +518,57 @@ barplot(
   horiz = TRUE,
   cex.names = 0.7,
   las = 1,
-  main = "Emotions in Text", xlab = "Percentage"
+  main = "Emotions % in New York Post", xlab = "Percentage",
 )
+
 ```
+
+N-gram analysis
+```{r}
+?bigram
+```
+
 
 
 
 # Statistical Methods
 
+For this topic modeling, we will use and Latent Dirichlet Allocation (LDA) model.
+```{r}
+inspect(dtm_d)
+```
 
+
+
+
+
+
+
+# Results
+
+```{r}
+
+```
+
+
+
+
+# Conclusion
+
+```{r}
+
+```
+
+
+
+
+# Abstract
 
 # Reference
 
 
 
 # Appendix
-
-
-# Results
-
-
-# Conclusion
-
-
-
-# Abstract
 
 
 
