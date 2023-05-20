@@ -42,6 +42,8 @@ library(SnowballC) # for text stemming
 library(wordcloud) # word-cloud generator
 library(RColorBrewer) # color palettes
 library(syuzhet) # for sentiment analysis
+library(generics)
+library(reshape2)
 ```
 
 ## Data 
@@ -292,16 +294,19 @@ for(i in 1:nrow(article_list)){
 
 ```{r}
 #final dataframe
-
 master_list <- cbind(article_list, all_text)
+#update column names
 colnames(master_list) <- c('title', 'date','url','text')
+#add row number as a column to be used later in a dtm
+master_list <- master_list %>%
+  mutate(doc=row_number())
 head(master_list)
 ```
 
 Analysis of Titles 
 ```{r}
 master_list_titles <- master_list %>%
-  select(title)
+  select(doc, title)
 str(master_list_titles)
 head(master_list_titles)
 ```
@@ -330,7 +335,7 @@ head(title_count)
 Analysis of Date column
 ```{r}
 master_list_date <- master_list %>%
-  select(date)
+  select(doc, date)
 str(master_list_date)
 head(master_list_date)
 ```
@@ -369,6 +374,9 @@ str(master_list_text)
 head(master_list_text)
 ```
 
+## Clean article text
+
+Text cleansing and analysis of frequently used words. 
 ```{r}
 # clean the data  using tidytext
 words <- master_list_text %>%
@@ -473,6 +481,8 @@ Find associations for words that occur at least 50 times
 findAssocs(textDoc_dtm, terms = findFreqTerms(textDoc_dtm, lowfreq = 50), corlimit = 0.25)
 ```
 
+## Sentiment Analysis 
+
 Sentiment Scores
 ```{r}
 # clean raw file before getting sentiment scores
@@ -528,18 +538,88 @@ N-gram analysis
 ?bigram
 ```
 
+## Topic Modeling
 
+```{r}
+head(master_list_text)
+
+tokens <- master_list_text$text %>%
+  tokens(what = "word",
+         remove_punct = TRUE,
+         remove_numbers = TRUE,
+         remove_url = TRUE) %>%
+  tokens_tolower() %>%
+  tokens_remove(stopwords("english"))
+
+dfm <- dfm_trim(dfm(tokens), min_termfreq = 0.005, max_docfreq = 0.99,
+                docfreq_type = "prop", verbose = TRUE)
+
+dfm
+```
+
+Check the top 20 features
+```{r}
+topfeatures(dfm, n=20, scheme = "docfreq")
+```
+
+Remove additional words and check top features again. 
+```{r}
+dfm <- dfm_remove(dfm, c("news","fake","$","ii"))
+topfeatures(dfm, n=20, scheme = "docfreq")
+```
 
 
 # Statistical Methods
 
 For this topic modeling, we will use and Latent Dirichlet Allocation (LDA) model.
+
+Convert the DTM into a topicmodel so we can run the LDA model. 
 ```{r}
-inspect(dtm_d)
+dtm <- convert(dfm, to = "topicmodels")
+set.seed(1)
+m <- LDA(dtm, method = "Gibbs", k = 15, control = list(alpha = 0.1))
+#n <- LDA(dtm, method = "Gibbs", k = 15, control = list(seed=1234))
+m
+#n
+```
+
+Inspecting the LDA results by looking at the top 5 terms for 10 Topics
+```{r}
+terms(m, 5)
+#terms(n,5)
+```
+
+Visualization of the top topics
+```{r}
+#tidy_lda <- as.data.frame(terms(m, dim(m)[1]))
+tidy_lda <- tidy(m)
+tidy_lda
+```
+
+```{r}
+top_terms <- tidy_lda %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10, with_ties = FALSE) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+top_terms
 ```
 
 
-
+```{r fig.height=15, fig.width=10}
+top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  group_by(topic, term) %>%
+  arrange(desc(beta)) %>%
+  ungroup() %>%
+  ggplot(aes(beta, term, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  scale_y_reordered() +
+  labs(title = "Top 10 terms in each LDA topic", 
+       x = expression(beta), y = NULL) +
+  facet_wrap(~ topic, ncol = 3, scales = "free")
+```
 
 
 
@@ -554,6 +634,8 @@ inspect(dtm_d)
 
 
 # Conclusion
+
+We cannot predict if an article is Fake but this method allows us to have a better understanding of properties and topics in a fake article. With the sentiment analsysis we can see the "mood" of these articles. 
 
 ```{r}
 
