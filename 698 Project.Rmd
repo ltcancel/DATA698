@@ -335,55 +335,212 @@ tail(dtm_dr)
 
 ## Real Data sentiment analysis
 
-Sentiment Scores NYP
+Sentiment scores for Real data
 ```{r}
-# clean raw file before getting sentiment scores
-clean_master_list <- master_list_text
-clean_master_list$text <- gsub("\\n"," ",as.character(clean_master_list$text))
-clean_master_list$text <- gsub("\\t"," ",as.character(clean_master_list$text))
-clean_master_list$text <- gsub("More On:"," ",as.character(clean_master_list$text))
-head(clean_master_list)
+syuzhet_real <- get_sentiment(real_df$text, method = "syuzhet")
+bing_real <- get_sentiment(real_df$text, method = "bing")
+afinn_real <- get_sentiment(real_df$text, method = "afinn")
+summary(syuzhet_real)
+summary(bing_real)
+summary(afinn_real)
 ```
 
-
-# DO NOT USE 
-Create Document Term Matrix (DTM)
-```{r eval=FALSE, include=FALSE}
-# first DTM
-fake.dtm <- DocumentTermMatrix(fake.corpus)
-fake.dtm <- as.matrix(fake.dtm)
-# remove low frequency words (sparse terms)
-#fake.dtm2 <- removeSparseTerms(fake.dtm, sparse = 0.99)
-#inspect(fake.dtm2)
-#??inspect
-#convert to dataframe
-fake.dtm.sort <- sort(rowSums(fake.dtm), decreasing = TRUE)
-fake.dtm.sort <- as.data.frame(word = names(fake.dtm.sort), freq = fake.dtm.sort)
-fake.dtm
-
-# sort by decreasing order
-x <- mapply(sum, fake.dtm.df)
-colSums(fake.dtm.df)
-fake.dtm.sort <- data.frame(fake.dtm.sort)
-fake.dtm.sort <- order(fake.dtm.sort, decreasing = TRUE)
-
-fake.dtm.sort
-#transpose df
-summary(fake.dtm.sort)
-fake.dtm.d <- data.frame(word = names(fake.dtm.sort), freq=fake.dtm.sort)
-head(fake.dtm.d)
-```
-
-
-Topic modeling. Using latent Dirichlet allocation (LDA) to learn the essential words in our DTM
+## Emotional classification fake
 ```{r}
-dtm_s <- sort(rowSums())
+r <- get_nrc_sentiment(real_df$text)
+head(r)
+```
 
-# LDA 
-fake.lda <- LDA(fake.dtm2, k = 2, control = list(seed = 1234))
+Graph the emotional classification results
+```{r}
+#transpose
+tdr <- data.frame(t(r))
+# compute sums of each column
+tdr_new <- data.frame(rowSums(tdr[2:5000]))
+names(tdr_new)[1] <- "count"
+tdr_new <- cbind("sentiment" = rownames(tdr_new), tdr_new)
+rownames(tdr_new) <- NULL
+tdr_new2 <- tdr_new[1:10,]
+quickplot(sentiment, data = tdr_new2, weight=count, geom = "bar", fill=sentiment, ylab = "count") + ggtitle("Real News Sentiments")
+q2 <- quickplot(sentiment, data = tdr_new2, weight=count, geom = "bar", fill=sentiment, ylab = "count") + ggtitle("Real News Sentiments")
+```
 
+## % of emotions fake data
+```{r}
+barplot(
+  sort(colSums(prop.table(r[,1:10]))),
+  horiz = TRUE,
+  cex.names = 0.7,
+  las = 1,
+  main = "Emotions % in Real News Dataset", xlab = "Percentage",
+)
 
 ```
+
+## Topic Modeling Fake News
+
+```{r}
+head(fake_df)
+
+f_tokens <- fake_df$text %>%
+  tokens(what = "word",
+         remove_punct = TRUE,
+         remove_numbers = TRUE,
+         remove_url = TRUE) %>%
+  tokens_tolower() %>%
+  tokens_remove(stopwords("english")) %>%
+  tokens_remove(pattern = c("s", "t", "image","images","getty"))
+
+dfm_f <- dfm_trim(dfm(f_tokens), min_termfreq = 0.005, max_docfreq = 0.99,
+                docfreq_type = "prop", verbose = TRUE)
+
+dfm_f
+```
+
+Check the top 20 features
+```{r}
+topfeatures(dfm_f, n=50, scheme = "docfreq")
+```
+
+Remove additional words and check top features again. 
+```{r}
+dfm_f <- dfm_remove(dfm_f, c("re","go","said","can","o","$","=","j"))
+topfeatures(dfm_f, n=50, scheme = "docfreq")
+```
+
+# LDA Statistical Methods Fake
+
+## LDA model for fake news
+
+```{r}
+dtm_f <- convert(dfm_f, to = "topicmodels")
+set.seed(1)
+mf <- LDA(dtm_f, method = "Gibbs", k = 15, control = list(alpha = 0.1))
+#n <- LDA(dtm, method = "Gibbs", k = 15, control = list(seed=1234))
+mf
+#n
+```
+
+Inspecting the LDA results by looking at the top 5 terms for 10 Topics
+```{r}
+terms(mf, 5)
+#terms(n,5)
+```
+
+Visualization of the top topics
+```{r}
+#tidy_lda <- as.data.frame(terms(m, dim(m)[1]))
+f_tidy_lda <- tidy(mf)
+f_tidy_lda
+```
+
+```{r}
+top_terms_f <- f_tidy_lda %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10, with_ties = FALSE) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+top_terms_f
+```
+
+
+```{r fig.height=15, fig.width=10}
+top_terms_f %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  group_by(topic, term) %>%
+  arrange(desc(beta)) %>%
+  ungroup() %>%
+  ggplot(aes(beta, term, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  scale_y_reordered() +
+  labs(title = "Top 10 terms in each LDA topic - Fake News Dataset", 
+       x = expression(beta), y = NULL) +
+  facet_wrap(~ topic, ncol = 3, scales = "free")
+```
+
+## Topic Modeling Real News
+
+```{r}
+head(real_df)
+
+r_tokens <- real_df$text %>%
+  tokens(what = "word",
+         remove_punct = TRUE,
+         remove_numbers = TRUE,
+         remove_url = TRUE) %>%
+  tokens_tolower() %>%
+  tokens_remove(stopwords("english")) 
+
+dfm_r <- dfm_trim(dfm(r_tokens), min_termfreq = 0.005, max_docfreq = 0.99,
+                docfreq_type = "prop", verbose = TRUE)
+
+dfm_r
+```
+
+Check the top 20 features
+```{r}
+topfeatures(dfm_r, n=50, scheme = "docfreq")
+```
+
+Remove additional words and check top features again. 
+```{r}
+dfm_r <- dfm_remove(dfm_r, c("$"))
+topfeatures(dfm_r, n=50, scheme = "docfreq")
+```
+
+# LDA Statistical Methods Real
+
+## LDA model for Real news
+
+```{r}
+dtm_r <- convert(dfm_r, to = "topicmodels")
+set.seed(1)
+mr <- LDA(dtm_r, method = "Gibbs", k = 15, control = list(alpha = 0.1))
+#n <- LDA(dtm, method = "Gibbs", k = 15, control = list(seed=1234))
+mr
+#n
+```
+
+Inspecting the LDA results by looking at the top 5 terms for 10 Topics
+```{r}
+terms(mr, 5)
+#terms(n,5)
+```
+
+Visualization of the top topics
+```{r}
+#tidy_lda <- as.data.frame(terms(m, dim(m)[1]))
+r_tidy_lda <- tidy(mr)
+r_tidy_lda
+```
+
+```{r}
+top_terms_r <- r_tidy_lda %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10, with_ties = FALSE) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+top_terms_r
+```
+
+
+```{r fig.height=15, fig.width=10}
+top_terms_r %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  group_by(topic, term) %>%
+  arrange(desc(beta)) %>%
+  ungroup() %>%
+  ggplot(aes(beta, term, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  scale_y_reordered() +
+  labs(title = "Top 10 terms in each LDA topic - Real News Dataset", 
+       x = expression(beta), y = NULL) +
+  facet_wrap(~ topic, ncol = 3, scales = "free")
+```
+
+
 
 ## New York Post Data
 The New York Post has a section dedicated to the latest 'Fake News'
@@ -720,7 +877,7 @@ N-gram analysis
 ?bigram
 ```
 
-## Topic Modeling
+## Topic Modeling NYP
 
 ```{r}
 head(master_list_text)
@@ -751,7 +908,7 @@ topfeatures(dfm, n=20, scheme = "docfreq")
 ```
 
 
-# Statistical Methods
+# Statistical Methods NYP
 
 For this topic modeling, we will use and Latent Dirichlet Allocation (LDA) model.
 
@@ -804,6 +961,31 @@ top_terms %>%
 ```
 
 
+# Train/Test Data
+
+## NYP data
+
+```{r}
+#create sample DTM for NYP
+p_dtm <- DocumentTermMatrix(textDoc)
+
+#set number of topics
+p_topics <- 5
+
+#split data into train and test sets 70/30
+set.seed(123)
+train_index_p <- sample(1:nrow(p_dtm), size = 0.7 * nrow(p_dtm))
+train_dtm_p <- p_dtm[train_index_p,]
+test_dtm_p <- p_dtm[-train_index_p,]
+
+#train LDA model on training set
+lda_model_p <- LDA(train_dtm_p, k = p_topics)
+
+# extract the topics for the test sest
+test_topics_p <- posterior(lda_model_p, newdata = test_dtm_p)$topics
+
+print(test_topics_p)
+```
 
 
 # Results
@@ -858,10 +1040,58 @@ wordcloud(words = dtm_dp$word, freq = dtm_dp$freq, min.freq = 10, max.words = 10
 ```
 
 Sentiment Analysis comparison
-```{r}
-grid.arrange(q1, q2, q3, ncol = 3)
+```{r fig.width=8, fig.height=8}
+grid.arrange(q1, q2, q3, ncol = 1)
 ```
 
+LDA Model Comparison
+
+Fake Data
+```{r fig.height=15, fig.width=10}
+top_terms_f %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  group_by(topic, term) %>%
+  arrange(desc(beta)) %>%
+  ungroup() %>%
+  ggplot(aes(beta, term, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  scale_y_reordered() +
+  labs(title = "Top 10 terms in each LDA topic - Fake News Dataset", 
+       x = expression(beta), y = NULL) +
+  facet_wrap(~ topic, ncol = 3, scales = "free")
+```
+
+
+Real Data
+```{r fig.height=15, fig.width=10}
+top_terms_r %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  group_by(topic, term) %>%
+  arrange(desc(beta)) %>%
+  ungroup() %>%
+  ggplot(aes(beta, term, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  scale_y_reordered() +
+  labs(title = "Top 10 terms in each LDA topic - Real News Dataset", 
+       x = expression(beta), y = NULL) +
+  facet_wrap(~ topic, ncol = 3, scales = "free")
+```
+
+
+NYP Data
+```{r fig.height=15, fig.width=10}
+top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  group_by(topic, term) %>%
+  arrange(desc(beta)) %>%
+  ungroup() %>%
+  ggplot(aes(beta, term, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  scale_y_reordered() +
+  labs(title = "Top 10 terms in each LDA topic - New York Post", 
+       x = expression(beta), y = NULL) +
+  facet_wrap(~ topic, ncol = 3, scales = "free")
+```
 
 
 
