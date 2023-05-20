@@ -74,7 +74,6 @@ real_df <- real_df %>%
   select(title, text, subject)
 print("Summary of 'Real' Dataset")
 summary(real_df)
-#str(real_df)
 ```
 
 
@@ -82,13 +81,6 @@ Other summaries
 ```{r}
 str(fake_df)
 str(real_df)
-
-
-#fake_df %>%
-#  count(text, sort = TRUE)
-
-#real_df %>%
-#  count(text, sort = TRUE)
 ```
 
 Missing Values
@@ -99,6 +91,11 @@ print("'Real' Dataset Missing Values")
 sum(is.na(real_df))
 ```
 
+Subset each DF to first 10,000 rows to cut down on the amount of time it takes R to process the information
+```{r}
+fake_df <- fake_df[1:5000,] 
+real_df <- real_df[1:5000,]
+```
 
 
 ```{r}
@@ -134,6 +131,9 @@ real_count <- real_count %>%
 head(real_count)
 ```
 
+
+
+
 chart of words
 ```{r fig.height=8, fig.width=15}
 p1 <- head(fake_count) %>%
@@ -156,20 +156,20 @@ p2 <- head(real_count) %>%
 grid.arrange(p1, p2, ncol = 2)
 ```
 
+## Document Term Matrix
 
-
-Normalizing the data by case-folding, stopword removal, stamming, lemmatization, and contraction simplification
+Fake News
 ```{r}
 # clean the data using Text Mine (TM)
 # create a corpus from the fake_df file
-fake_df.corpus <- Corpus(VectorSource(fake_df))
+fake_df.corpus <- Corpus(VectorSource(fake_df$text))
 
 space <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
 fake.corpus <- tm_map(fake_df.corpus, space, "/")
 fake.corpus <- tm_map(fake.corpus, space, "@")
 fake.corpus <- tm_map(fake.corpus, space, "\\|")
 #remove stopwords
-#fake.corpus <- tm_map(fake_df.corpus, removeWords, stopwords("english"))
+fake.corpus <- tm_map(fake_df.corpus, removeWords, stopwords("english"))
 # convert to lower
 fake.corpus <- tm_map(fake_df.corpus, content_transformer(tolower))
 #remove numbers
@@ -180,10 +180,64 @@ fake.corpus <- tm_map(fake_df.corpus, removePunctuation)
 fake.corpus <- tm_map(fake_df.corpus, stripWhitespace)
 # stemming
 fake.corpus <- tm_map(fake.corpus, content_transformer(stemDocument))
-
-head(fake.corpus)
+```
+Fake Dataset Document Term Matrix
+```{r}
+fakeDoc_dtm <- TermDocumentMatrix(fake.corpus)
+dtm_mf <- as.matrix(fakeDoc_dtm)
+# sort by decreasing value of frequency
+dtm_vf <- sort(rowSums(dtm_mf), decreasing = TRUE)
+dtm_df <- data.frame(word = names(dtm_vf), freq=dtm_vf)
+# remove first two rows
+#dtm_df <- dtm_df[-c(1:2),]
+# remove last 5 rows
+#dtm_df <- slice(dtm_df, 1:(n() - 6))
+# display the top 5 most frequent works
+head(dtm_df)
+tail(dtm_df)
 ```
 
+Real Datasest Document Term Matix
+
+
+
+Prep data for sentiment analysis
+```{r}
+# load data as a corpus
+textDoc <- Corpus(VectorSource(master_list_text))
+
+# replace "/", "@", and "|" with space
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+textDoc <- tm_map(textDoc, toSpace, "/")
+textDoc <- tm_map(textDoc, toSpace, "@")
+textDoc <- tm_map(textDoc, toSpace, "\\|")
+
+# convert the text to lower case
+textDoc <- tm_map(textDoc, content_transformer(tolower))
+# remove numbers
+textDoc <- tm_map(textDoc, removeNumbers)
+# remove english common stopwords
+textDoc <- tm_map(textDoc, removeWords, stopwords("english"))
+# remove punctuation
+textDoc <- tm_map(textDoc, removePunctuation)
+# eliminate extra white spaces
+textDoc <- tm_map(textDoc, stripWhitespace)
+# text stemming - reduce words to their root form
+textDoc <- tm_map(textDoc, stemDocument)
+# remove custom words after seeing the frequency
+removeSpecialChars <- function(x) gsub("-","",x)
+textDoc <- tm_map(textDoc, removeSpecialChars)
+# remove custom words 
+textDoc <- tm_map(textDoc, removeWords, c("said","news","fake","post","''"))
+```
+
+
+Build Document Term Matrix (DTM)
+
+
+
+
+# DO NOT USE 
 Create Document Term Matrix (DTM)
 ```{r}
 # first DTM
@@ -197,10 +251,7 @@ fake.dtm <- as.matrix(fake.dtm)
 fake.dtm.sort <- sort(rowSums(fake.dtm), decreasing = TRUE)
 fake.dtm.sort <- as.data.frame(word = names(fake.dtm.sort), freq = fake.dtm.sort)
 fake.dtm
-#write.csv(fake.dtm.df,"DTM.csv")
-```
 
-```{r}
 # sort by decreasing order
 x <- mapply(sum, fake.dtm.df)
 colSums(fake.dtm.df)
@@ -223,7 +274,6 @@ dtm_s <- sort(rowSums())
 fake.lda <- LDA(fake.dtm2, k = 2, control = list(seed = 1234))
 
 
-?LDA
 ```
 
 ## New York Post Data
@@ -400,16 +450,23 @@ head(words_count)
 tail(words_count)
 ```
 
-Sentiment analysis of NYP words
+Visual of top words
 ```{r}
-words_sentiment <- words_count %>%
-  inner_join(get_sentiments("bing")) %>%
-  count(word, index = linenumber %/% 80, sentiment) %>%
-  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>%
-  mutate(sentiment = positive - negative)
-
-??linenumber
+p3 <- head(words_count) %>%
+  ggplot(aes (word, n, fill = word)) +
+  geom_col(stat = "identity") + 
+  coord_flip() + 
+  labs(title = "New York Post Top Words",
+         y = "count") +
+  theme(legend.position = "none")
 ```
+
+
+```{r fig.height=6, fig.width=13}
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+
 
 Prep data for sentiment analysis
 ```{r}
@@ -467,6 +524,12 @@ barplot(dtm_d[1:5,]$freq, las = 2, names.arg = dtm_d[1:5,]$word,
 Generate word cloud
 ```{r}
 set.seed(1234)
+wordcloud(words = dtm_d$word, freq = dtm_d$freq, min.freq = 10, max.words = 100, random.order = FALSE,
+          rot.per = 0.40, colors = brewer.pal(8, "Dark2"))
+
+wordcloud(words = dtm_d$word, freq = dtm_d$freq, min.freq = 10, max.words = 100, random.order = FALSE,
+          rot.per = 0.40, colors = brewer.pal(8, "Dark2"))
+
 wordcloud(words = dtm_d$word, freq = dtm_d$freq, min.freq = 10, max.words = 100, random.order = FALSE,
           rot.per = 0.40, colors = brewer.pal(8, "Dark2"))
 ```
@@ -616,7 +679,7 @@ top_terms %>%
   ggplot(aes(beta, term, fill = as.factor(topic))) +
   geom_col(show.legend = FALSE) +
   scale_y_reordered() +
-  labs(title = "Top 10 terms in each LDA topic", 
+  labs(title = "Top 10 terms in each LDA topic - New York Post", 
        x = expression(beta), y = NULL) +
   facet_wrap(~ topic, ncol = 3, scales = "free")
 ```
@@ -635,7 +698,7 @@ top_terms %>%
 
 # Conclusion
 
-We cannot predict if an article is Fake but this method allows us to have a better understanding of properties and topics in a fake article. With the sentiment analsysis we can see the "mood" of these articles. 
+We cannot predict if an article is Fake but this method allows us to have a better understanding of properties and topics in a fake article. With the sentiment analysis we can see the "mood" of these articles. So we take the LDA model results from the known Fake News dataset and compare it to the data scraped from the New York Post. Even though the NYP does not fall under the definition of "Fake" news for the purposes of this project, the articles were written to identify fake news on the web, so the topics in the NYP are still useful in this analysis. 
 
 ```{r}
 
