@@ -966,11 +966,41 @@ top_terms %>%
 ## NYP data
 
 ```{r}
+# load data as a corpus
+textDoc_p <- Corpus(VectorSource(master_list_text))
+
+# replace "/", "@", and "|" with space
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+textDoc <- tm_map(textDoc_p, toSpace, "/")
+textDoc <- tm_map(textDoc_p, toSpace, "@")
+textDoc <- tm_map(textDoc_p, toSpace, "\\|")
+
+# convert the text to lower case
+textDoc_p <- tm_map(textDoc_p, content_transformer(tolower))
+# remove numbers
+textDoc_p <- tm_map(textDoc_p, removeNumbers)
+# remove english common stopwords
+textDoc_p <- tm_map(textDoc_p, removeWords, stopwords("english"))
+# remove punctuation
+textDoc_p <- tm_map(textDoc_p, removePunctuation)
+# eliminate extra white spaces
+textDoc_p <- tm_map(textDoc_p, stripWhitespace)
+# text stemming - reduce words to their root form
+textDoc_p <- tm_map(textDoc_p, stemDocument)
+# remove custom words after seeing the frequency
+removeSpecialChars <- function(x) gsub("-","",x)
+textDoc_p <- tm_map(textDoc_p, removeSpecialChars)
+# remove custom words 
+textDoc_p <- tm_map(textDoc_p, removeWords, c("said","news","fake","post","''"))
+```
+
+
+```{r}
 #create sample DTM for NYP
-p_dtm <- DocumentTermMatrix(textDoc)
+p_dtm <- DocumentTermMatrix(textDoc_p)
 
 #set number of topics
-p_topics <- 5
+#p_topics <- 5
 
 #split data into train and test sets 70/30
 set.seed(123)
@@ -979,16 +1009,27 @@ train_dtm_p <- p_dtm[train_index_p,]
 test_dtm_p <- p_dtm[-train_index_p,]
 
 #train LDA model on training set
-lda_model_p <- LDA(train_dtm_p, k = p_topics)
+lda_model_p <- LDA(train_dtm_p, method = "Gibbs", k = 5, control = list(alpha = 0.01))
+
+#calculate perplexity for test
+perplexity(lda_model_p, test_dtm_p)
 
 # extract the topics for the test sest
-test_topics_p <- posterior(lda_model_p, newdata = test_dtm_p)$topics
+#test_topics_p <- posterior(lda_model_p, newdata = test_dtm_p)$topics
 
-print(test_topics_p)
+#print(test_topics_p)
+
+print(p_dtm)
 ```
 
 
 # Results
+
+We can evaluate the results of the LDA models using human judgement, quantitative metrics, or a combination of the two. The top words in each dataset were evaluated for Word Intrusion, a word within the group that did not belong to the topic. For example, the words Fake, News, and Post were removed the from the New York Post dataset after looking at the top topics. The articles were scraped from a section of the New York Post website with the takes Fake News so seeing these words as top terms does not help us in our analysis. By removing these words we can see the actual topics that are important in this dataset. Human judgement was used identify terms that should be removed when evaluating the top 10 terms from a sample of 15 topics.
+
+The quantitative metric for evaluating an LDA model is Perplexity, which calculates the 'held our likelihood'. We will look at the perplexity of each model. 
+
+https://highdemandskills.com/topic-model-evaluation/ 
 
 ```{r}
 
@@ -1000,6 +1041,8 @@ print(test_topics_p)
 # Conclusion
 
 We cannot predict if an article is Fake but this method allows us to have a better understanding of properties and topics in a fake article. With the sentiment analysis we can see the "mood" of these articles. So we take the LDA model results from the known Fake News dataset and compare it to the data scraped from the New York Post. Even though the NYP does not fall under the definition of "Fake" news for the purposes of this project, the articles were written to identify fake news on the web, so the topics in the NYP are still useful in this analysis. 
+
+
 
 ```{r fig.height=6, fig.width=13}
 grid.arrange(p1, p2, p3, ncol = 3)
