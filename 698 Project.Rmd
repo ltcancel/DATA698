@@ -75,6 +75,8 @@ real_df <- real_df %>%
   select(title, text, subject)
 print("Summary of 'Real' Dataset")
 summary(real_df)
+
+summary(nyp)
 ```
 
 
@@ -106,6 +108,10 @@ real_df <- real_df %>%
   select(title, text, subject)
 print("Summary of 'Real' Dataset")
 summary(real_df)
+
+
+print("Summary of NYP Dataset")
+summary(master_list)
 ```
 
 
@@ -365,7 +371,7 @@ quickplot(sentiment, data = tdr_new2, weight=count, geom = "bar", fill=sentiment
 q2 <- quickplot(sentiment, data = tdr_new2, weight=count, geom = "bar", fill=sentiment, ylab = "count") + ggtitle("Real News Sentiments")
 ```
 
-## % of emotions fake data
+## % of emotions real data
 ```{r}
 barplot(
   sort(colSums(prop.table(r[,1:10]))),
@@ -718,7 +724,14 @@ tail(words_count)
 
 Visual of top words
 ```{r}
-p3 <- head(words_count) %>%
+words_count2 <- subset(words_count, word !="fake")
+words_count2 <- subset(words_count2, word !="news")
+head(words_count2)
+
+words_count %>%
+  filter(word != c("fake", "news"))
+
+p3 <- head(words_count2) %>%
   ggplot(aes (word, n, fill = word)) +
   geom_col(stat = "identity") + 
   coord_flip() + 
@@ -728,8 +741,8 @@ p3 <- head(words_count) %>%
 ```
 
 
-```{r fig.height=6, fig.width=13}
-grid.arrange(p1, p2, p3, ncol = 3)
+```{r fig.height=8, fig.width=8}
+grid.arrange(p1, p2, p3, ncol = 2)
 ```
 
 
@@ -1045,7 +1058,7 @@ We cannot predict if an article is Fake but this method allows us to have a bett
 
 
 ```{r fig.height=6, fig.width=13}
-grid.arrange(p1, p2, p3, ncol = 3)
+grid.arrange(p1, p2, p3, ncol = 2)
 ```
 
 
@@ -1063,6 +1076,17 @@ Top Words
 ```{r fig.height=6, fig.width=13}
 grid.arrange(p1, p2, p3, ncol = 3)
 ```
+
+```{r}
+head(dtm_df)
+
+# read dataset dtm
+head(dtm_dr)
+# new york post dtm
+head(dtm_dp)
+```
+
+
 
 Word Clouds
 ```{r fig.width=10, message=FALSE, warning=FALSE}
@@ -1086,6 +1110,39 @@ Sentiment Analysis comparison
 ```{r fig.width=8, fig.height=8}
 grid.arrange(q1, q2, q3, ncol = 1)
 ```
+
+Sentiment % Comparison
+```{r }
+barplot(
+  sort(colSums(prop.table(f[,1:10]))),
+  horiz = TRUE,
+  cex.names = 0.7,
+  las = 1,
+  main = "Emotions % in Fake News Dataset", xlab = "Percentage",
+)
+
+```
+
+```{r}
+barplot(
+  sort(colSums(prop.table(r[,1:10]))),
+  horiz = TRUE,
+  cex.names = 0.7,
+  las = 1,
+  main = "Emotions % in Real News Dataset", xlab = "Percentage",
+)
+```
+
+```{r}
+barplot(
+  sort(colSums(prop.table(d[,1:10]))),
+  horiz = TRUE,
+  cex.names = 0.7,
+  las = 1,
+  main = "Emotions % in New York Post", xlab = "Percentage",
+)
+```
+
 
 LDA Model Comparison
 
