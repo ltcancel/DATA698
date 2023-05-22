@@ -1147,7 +1147,7 @@ barplot(
 LDA Model Comparison
 
 Fake Data
-```{r fig.height=15, fig.width=10}
+```{r fig.height=11, fig.width=8}
 top_terms_f %>%
   mutate(term = reorder_within(term, beta, topic)) %>%
   group_by(topic, term) %>%
@@ -1163,7 +1163,7 @@ top_terms_f %>%
 
 
 Real Data
-```{r fig.height=15, fig.width=10}
+```{r fig.height=11, fig.width=8}
 top_terms_r %>%
   mutate(term = reorder_within(term, beta, topic)) %>%
   group_by(topic, term) %>%
@@ -1179,7 +1179,7 @@ top_terms_r %>%
 
 
 NYP Data
-```{r fig.height=15, fig.width=10}
+```{r fig.height=11, fig.width=8}
 top_terms %>%
   mutate(term = reorder_within(term, beta, topic)) %>%
   group_by(topic, term) %>%
