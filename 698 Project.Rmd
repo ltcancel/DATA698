@@ -47,6 +47,9 @@ library(reshape2)
 library(textdata)
 library(randomForest)
 library(udpipe)
+library(e1071)
+library(gmodels)
+library(tibble)
 ```
 
 ## Data 
@@ -1057,11 +1060,12 @@ temp_fake$docType <- "Fake"
 temp_fake <- temp_fake %>%
   mutate(doc = row_number())
 
-temp_fake <- temp_fake %>%
-  select(docType, text)
+#temp_fake <- temp_fake %>%
+#  select(docType, text)
 
 # test remove stopwords from real df before creating corpus
 #temp_fake$text <- removeWords(temp_fake$text, stopwords("english"))
+?as.corpus
 ```
 
 Create df for real data
@@ -1073,8 +1077,8 @@ temp_real$docType <- "Real"
 temp_real <- temp_real %>%
   mutate(doc=row_number())
 
-temp_real <- temp_real %>%
-  select(docType, text)
+#temp_real <- temp_real %>%
+#  select(docType, text)
 
 # test remove stopwords from real df before creating corpus
 #temp_real$text <- removeWords(temp_real$text, stopwords("english"))
@@ -1085,23 +1089,26 @@ Combined datasets if needed
 ```{r eval=FALSE, include=FALSE}
 # combine both datasets to use for modeling
 full_df <- rbind(temp_fake, temp_real)
-full_df <- full_df %>%
-  select(text, docType) 
+
 
 # rearrange column order
-full_df <- full_df %>%
-  select(docType, text)
+full_df2 <- full_df %>%
+  select(doc, text, docType)
 
-full_df$docType <- as.factor(full_df$docType)
+full_df2$docType <- as.factor(full_df2$docType)
 
 # df of just the document numbers and the doctype
-doc_list <- full_df %>%
+doc_list <- full_df2 %>%
   select(doc, docType)
+
+full_df <- full_df %>%
+  select(doc, text) 
+
 head(full_df)
 tail(full_df)
 ```
 
-Fake corpus
+Full corpus
 ```{r}
 # load data as a corpus
 full_corp <- VCorpus(VectorSource(full_df$text))
@@ -1116,6 +1123,11 @@ full_corp <- tm_map(full_corp, removeNumbers)
 full_corp <- tm_map(full_corp, removeWords, stopwords("english"))
 # remove punctuation
 full_corp <- tm_map(full_corp, removePunctuation)
+urlRemover <- function(x) gsub("http:[[:alnum:]]*","", x)
+full_corp<-tm_map(full_corp,content_transformer(urlRemover))
+#email remover
+emailRemover<-function(x) str_replace(x,"(?<=\\s)[[:alnum:]._-]+@[[:alnum:],.-]{2,}","")
+full_corp<-tm_map(full_corp,content_transformer(emailRemover))
 
 # replace "/", "@", and "|" with space
 #toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
@@ -1136,48 +1148,178 @@ full_corp <- tm_map(full_corp, removePunctuation)
 ```
 
 
+Attempt to make a corpus with classification meta data
+```{r}
+fake_meta <- fake_df$text %>% 
+  VectorSource() %>% Corpus() 
+meta(fake_meta, "fake") <- 0
+
+real_meta <- real_df$text  %>% 
+  VectorSource() %>% Corpus() 
+meta(real_meta, "real") <- 1
+
+# combine corpus
+full_corp <- c(fake_meta, real_meta)
+
+#clean new full corp
+# convert the text to lower case
+full_corp <- tm_map(full_corp, content_transformer(tolower))
+# remove numbers
+full_corp <- tm_map(full_corp, removeNumbers)
+# remove english common stopwords
+full_corp <- tm_map(full_corp, removeWords, stopwords("english"))
+# remove punctuation
+full_corp <- tm_map(full_corp, removePunctuation)
+```
 
 Create DTM of the full corpus and export to dataframe
 ```{r}
 full_dtm <- DocumentTermMatrix(full_corp)
 
-inspect(fake_dtm)
+inspect(full_dtm)
+
+#remove sparse terms
+full_dtm <- removeSparseTerms(full_dtm, 0.96)
+
+inspect(full_dtm)
 
 full_dtm_df <- as.data.frame(as.matrix(full_dtm))
 
-head(full_dtm_df)
+full_dtm_df <- full_dtm_df %>%
+  mutate(doc = row_number())
+
+# add document type label back to df
+final_full_dtm_df <- cbind("doc"=doc_list$doc,full_dtm_df,"docType"=doc_list$docType )
+
+head(final_full_dtm_df)
 #summary(fake_dtm_df)
 ```
 
-Create Train & Test data
+more cleaning
 ```{r}
-# train/test of dtm
-train_index <- sample(1:nrow(full_dtm_df), size = 0.7 * nrow(full_dtm_df))
-train <- full_dtm_df[train_index,]
-test <- full_dtm_df[-train_index,]
+final_full_dtm_df <- final_full_dtm_df[,-2]
+final_full_dtm_df %>%
+  rename("dont" = `don’t`)
+train <- train %>%
+  rename("dont" = `don’t`)
+train$`else` = NULL
+train <- train %>%
+  rename("obamas" = `obama’s`)
+train <- train %>%
+  rename("presidents" = `president’s`)
+train <- train %>%
+  rename("trumps" = `trump’s`)
+train$`next` = NULL
+test <- test %>%
+  rename("dont" = `don’t`)
+test$`else` = NULL
+test <- test %>%
+  rename("obamas" = `obama’s`)
+test <- test %>%
+  rename("presidents" = `president’s`)
+test <- test %>%
+  rename("trumps" = `trump’s`)
+test$`next` = NULL
+head(train)
 
-# train and test of original df with type
-train_index_type <- sample(1:nrow(full_df), size = 0.7 * nrow(full_df))
-train <- full_df[train_index_type,]$docType
-test <- full_dtm_df[-train_index_type,]
 ```
 
 
-Create train/test datasets of the Fake data. 70% will  be the training set and 30% will be the test set
+Create Train & Test data
 ```{r}
-#split data into train and test sets 70/30
-train_index_fake <- sample(1:nrow(fake_dtm_df), size = 0.7 * nrow(fake_dtm_df))
-fake_train <- fake_dtm_df[train_index_fake,]
-fake_test <- fake_dtm_df[-train_index_fake,]
-
+#shuffle df
+final_full_dtm_df <- final_full_dtm_df[sample(1:nrow(final_full_dtm_df)),]
+full_df <- full_df[sample(1:nrow(full_df)),]
 ```
 
 ```{r}
 set.seed(123)
+# train/test of dtm
+train_index <- sample(1:nrow(final_full_dtm_df), size = 0.7 * nrow(final_full_dtm_df))
+train <- final_full_dtm_df[train_index,]
+test <- final_full_dtm_df[-train_index,]
 
-# create random forest model
-fake_model <- randomForest(docType ~ ., data = fake_train)
+# train and test of original df with type
+train_index_type <- sample(1:nrow(full_df), size = 0.7 * nrow(full_df))
+train_type <- full_df[train_index_type,]$docType
+test_type <- full_df[-train_index_type,]$docType
 ```
+
+remove columns that cause issues for the model
+```{r}
+
+```
+
+
+Create a Naive Bayes Classifier
+```{r}
+nb_model <- naiveBayes(docType ~ ., data = train)
+
+# make prediction using the model
+nb_predict <- predict(nb_model, newdata = test)
+```
+
+table of predictions
+```{r}
+CrossTable(nb_predict, test_type,
+           prop.chisq = FALSE, prop.t = FALSE,
+           dnn = c("Prediction","Actual"))
+```
+
+Compare accuracy
+```{r}
+accuracy_nb <- sum(nb_predict == test$docType) / nrow(test)
+accuracy_rf <- sum(rf_predict == test$docType) / nrow(test)
+accuracy_nb
+accuracy_rf
+
+```
+
+
+
+Evaluation of model
+```{r}
+# calculate accuracy
+accuracy <- sum(predictions == train_type) / length(train_type)
+accuracy
+```
+
+Random Forest model
+```{r}
+fr_model <- randomForest(docType ~., data=train)
+```
+
+predict from random forest model
+```{r}
+rf_predict <- predict(fr_model, newdata = test)
+
+#convert to dataframe
+#rf_predict_df <- as.data.frame(rf_predict)
+#test_type <- as.data.frame(test_type)
+
+cm <- table(rf_predict, test_type)
+cm
+CrossTable(rf_predict,test_type,
+           prop.chisq = FALSE, prop.t = FALSE,
+           dnn = c("Prediction","Actual"))
+
+
+length(rf_predict_df)
+length(test_type)
+tail(test_type)
+```
+
+SVM Model and Prediction
+```{r}
+svm_model <- svm(docType ~., data = train, kernel = "linear")
+
+svm_predict <- predict(svm_model, newdata = test)
+
+CrossTable(svm_predict, test_type,
+           prop.chisq = FALSE, prop.t = FALSE,
+           dnn = c("Prediction","Actual"))
+```
+
 
 ### Test the Fake model
 
