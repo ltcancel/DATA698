@@ -45,6 +45,8 @@ library(syuzhet) # for sentiment analysis
 library(generics)
 library(reshape2)
 library(textdata)
+library(randomForest)
+library(udpipe)
 ```
 
 ## Data 
@@ -984,9 +986,9 @@ textDoc_p <- Corpus(VectorSource(master_list_text))
 
 # replace "/", "@", and "|" with space
 toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
-textDoc <- tm_map(textDoc_p, toSpace, "/")
-textDoc <- tm_map(textDoc_p, toSpace, "@")
-textDoc <- tm_map(textDoc_p, toSpace, "\\|")
+textDoc_p <- tm_map(textDoc_p, toSpace, "/")
+textDoc_p <- tm_map(textDoc_p, toSpace, "@")
+textDoc_p <- tm_map(textDoc_p, toSpace, "\\|")
 
 # convert the text to lower case
 textDoc_p <- tm_map(textDoc_p, content_transformer(tolower))
@@ -1034,6 +1036,155 @@ perplexity(lda_model_p, test_dtm_p)
 
 print(p_dtm)
 ```
+
+## SVM models & Predictions Fake/True data
+
+### Random Forest 
+
+import data again
+```{r}
+fake_df_all <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/Fake.csv?raw=true")
+real_df_all <- read.csv("https://github.com/ltcancel/DATA698/blob/main/Data/True.csv?raw=true")
+```
+
+
+Create df for fake data
+```{r}
+# temp df of fake DF with a document type label
+temp_fake <- fake_df
+temp_fake$docType <- "Fake"
+
+temp_fake <- temp_fake %>%
+  mutate(doc = row_number())
+
+temp_fake <- temp_fake %>%
+  select(docType, text)
+
+# test remove stopwords from real df before creating corpus
+#temp_fake$text <- removeWords(temp_fake$text, stopwords("english"))
+```
+
+Create df for real data
+```{r}
+# temp df of the real df with a document type label
+temp_real <- real_df
+temp_real$docType <- "Real"
+
+temp_real <- temp_real %>%
+  mutate(doc=row_number())
+
+temp_real <- temp_real %>%
+  select(docType, text)
+
+# test remove stopwords from real df before creating corpus
+#temp_real$text <- removeWords(temp_real$text, stopwords("english"))
+```
+
+
+Combined datasets if needed
+```{r eval=FALSE, include=FALSE}
+# combine both datasets to use for modeling
+full_df <- rbind(temp_fake, temp_real)
+full_df <- full_df %>%
+  select(text, docType) 
+
+# rearrange column order
+full_df <- full_df %>%
+  select(docType, text)
+
+full_df$docType <- as.factor(full_df$docType)
+
+# df of just the document numbers and the doctype
+doc_list <- full_df %>%
+  select(doc, docType)
+head(full_df)
+tail(full_df)
+```
+
+Fake corpus
+```{r}
+# load data as a corpus
+full_corp <- VCorpus(VectorSource(full_df$text))
+
+#inspect(fake_corp)
+
+# convert the text to lower case
+full_corp <- tm_map(full_corp, content_transformer(tolower))
+# remove numbers
+full_corp <- tm_map(full_corp, removeNumbers)
+# remove english common stopwords
+full_corp <- tm_map(full_corp, removeWords, stopwords("english"))
+# remove punctuation
+full_corp <- tm_map(full_corp, removePunctuation)
+
+# replace "/", "@", and "|" with space
+#toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+#fake_corp <- tm_map(fake_corp, toSpace, "/")
+#fake_corp <- tm_map(fake_corp, toSpace, "@")
+#fake_corp <- tm_map(fake_corp, toSpace, "\\|")
+
+
+# eliminate extra white spaces
+#fake_corp <- tm_map(fake_corp, stripWhitespace)
+# text stemming - reduce words to their root form
+#fake_corp <- tm_map(fake_corp, stemDocument)
+# remove custom words after seeing the frequency
+#removeSpecialChars <- function(x) gsub("-","",x)
+#fake_corp <- tm_map(fake_corp, removeSpecialChars)
+# remove custom words 
+#fake_corp <- tm_map(fake_corp, removeWords, c("said","news","fake","post","''"))
+```
+
+
+
+Create DTM of the full corpus and export to dataframe
+```{r}
+full_dtm <- DocumentTermMatrix(full_corp)
+
+inspect(fake_dtm)
+
+full_dtm_df <- as.data.frame(as.matrix(full_dtm))
+
+head(full_dtm_df)
+#summary(fake_dtm_df)
+```
+
+Create Train & Test data
+```{r}
+# train/test of dtm
+train_index <- sample(1:nrow(full_dtm_df), size = 0.7 * nrow(full_dtm_df))
+train <- full_dtm_df[train_index,]
+test <- full_dtm_df[-train_index,]
+
+# train and test of original df with type
+train_index_type <- sample(1:nrow(full_df), size = 0.7 * nrow(full_df))
+train <- full_df[train_index_type,]$docType
+test <- full_dtm_df[-train_index_type,]
+```
+
+
+Create train/test datasets of the Fake data. 70% will  be the training set and 30% will be the test set
+```{r}
+#split data into train and test sets 70/30
+train_index_fake <- sample(1:nrow(fake_dtm_df), size = 0.7 * nrow(fake_dtm_df))
+fake_train <- fake_dtm_df[train_index_fake,]
+fake_test <- fake_dtm_df[-train_index_fake,]
+
+```
+
+```{r}
+set.seed(123)
+
+# create random forest model
+fake_model <- randomForest(docType ~ ., data = fake_train)
+```
+
+### Test the Fake model
+
+```{r}
+
+```
+
 
 
 # Results
